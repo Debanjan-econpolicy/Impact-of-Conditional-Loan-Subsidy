@@ -89,30 +89,16 @@ drop if inlist(key, "uuid:be7b0fd4-08d9-45c2-9bba-11e7a00dcbd0",				///
 
 **merge 1:1 enterprise_id using "C:\Users\Debanjan Das\Desktop\TNRTP\MGP\admin data\Sampling\MGP_sample_final.dta", keepusing(Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched cohort_new Disbursement_Amount) gen(psm_merge)
 
-merge 1:1 enterprise_id using "$raw\MGP_sample_final.dta", keepusing(Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched app_sub_date quarterly_submission_date disbursement_date quarterly_disbursement_date cohort_new Disbursement_Amount CIBILscore age_entrepreneur Gender CIBILscore ECP_Score HighestEducation Religion Community MaritalStatus NumberofHouseholdmembers  HouseholdIncome HouseholdConsumption HouseholdSavings OwnRentedHouse TypeofDwelling CAPBeneficiary OtherSourceofincome Typeofownership Existingbusiness ActualWorkingCapital TotalFixedCost RequestedLoanAmount Category_of_enterprise Vehicle Householdassets Jewels Cashatbank Cashathand ent_asset_index Water Equipmentavailability Skilledlaboravailability B2C B2B Riskmitigationplan  LoanCategory CurrentSupplyAnnual PresentDemandAnnual rejection_reasons_encode) gen(psm_merge)
+merge 1:1 enterprise_id using "$raw\MGP_sample_final_with_backup.dta", keepusing(Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched app_sub_date quarterly_submission_date disbursement_date quarterly_disbursement_date cohort_new Disbursement_Amount CIBILscore age_entrepreneur Gender CIBILscore ECP_Score HighestEducation Religion Community MaritalStatus NumberofHouseholdmembers  HouseholdIncome HouseholdConsumption HouseholdSavings OwnRentedHouse TypeofDwelling CAPBeneficiary OtherSourceofincome Typeofownership Existingbusiness ActualWorkingCapital TotalFixedCost RequestedLoanAmount Category_of_enterprise Vehicle Householdassets Jewels Cashatbank Cashathand ent_asset_index Water Equipmentavailability Skilledlaboravailability B2C B2B Riskmitigationplan  LoanCategory CurrentSupplyAnnual PresentDemandAnnual rejection_reasons_encode) gen(psm_merge) force
 
 keep if (psm_merge==3)
 
 /*==============================================================================
 							Business Running Insights
 ==============================================================================*/
-fre sec1_q9
-/*
-sec1_q9 -- Is this enterprise still running?
---------------------------------------------------------------------------
-                             |      Freq.    Percent      Valid       Cum.
------------------------------+--------------------------------------------
-Valid   1 Yes, still running |       2375      79.38      79.75      79.75
-        2 No, it is defunct  |        603      20.15      20.25     100.00
-        Total                |       2978      99.53     100.00           
-Missing .                    |         14       0.47                      
-Total                        |       2992     100.00                      
---------------------------------------------------------------------------
-*/
-//2375 enterprises are running as of first wave survey, 14 values were missing because they have not provided the consent. 
+fre sec1_q9																		//2454 enterprises are running. 
 
-gen ent_running = (sec1_q7 == 1 & sec1_q9 == 1)					///Total 2375 enterprisere are running this is out study sample as of this stage after first wave of the survey.
- 				
+gen ent_running = (sec1_q7 == 1 & sec1_q9 == 1)											
 la var ent_running "Business is running and owner provided consent (1=Yes)"
 
 /*==============================================================================
