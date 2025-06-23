@@ -150,6 +150,9 @@ foreach year in 2022 2023 2024 {
 gen e_age = (date("18apr2025", "DMY") - sec3_q1)/365.25
 label var e_age "Age of the enterprise (years)"
 format e_age %4.2f
+replace e_age = . if e_age < 0							
+winsor2 e_age, replace cuts(1 99)
+
 
 /*==============================================================================
 								Entrepreneur Age, from the MIS 									
@@ -159,16 +162,19 @@ format e_age %4.2f
 gen dob = date(Dateofbirth, "YMD") 
 format dob %td
 
-** Calculate age of entrepreneur (as of April 18, 2025)
-gen age_entrepreneur_s = (date("18apr2025", "DMY") - dob)/365.25
+** Calculate age of entrepreneur (as of June 23, 2025)
+gen age_entrepreneur_s = (date("23june2025", "DMY") - dob)/365.25
 label var age_entrepreneur_s "Age of the entrepreneur (years)"
-format age_entrepreneur %4.1f
+format age_entrepreneur_s %4.1f
+replace age_entrepreneur_s = . if age_entrepreneur_s < 0							
+winsor2 age_entrepreneur_s, replace cuts(1 99)
+
 
 /*==============================================================================
 								Entrepreneur Marriage Age, from the MIS 									
 ==============================================================================*/
 gen marital_status = inlist(sec4_q1, 2, 3, 4 ) if ent_running == 1
-la var marital_status "1 = Married (Married, Widowed,  Divorced), 0 = Never married "
+la var marital_status "1 = Married (Married, Widowed, Divorced), 0 = Never married "
 
 clonevar marriage_age = sec4_q1_a if ent_running == 1
 sum sec4_q1_a if ent_running == 1, detail
@@ -177,7 +183,7 @@ replace marriage_age = r(p50) if marriage_age == -27 & marriage_age != .
 replace marriage_age = r(p50) if marriage_age == 220 & marriage_age != .
 la var marriage_age "Marriage age if ever married"
 
-count if sec4_q1 == 1 & marriage_age != . & ent_running == 1  					//Checking that if unmarried respondents have married age. It is not
+count if sec4_q1 == 1 & marriage_age != . & ent_running == 1  					//Checking that if unmarried respondents have married age. 
 
 
 /*==============================================================================
@@ -304,10 +310,6 @@ label var ent_location_2 "Located in secondary marketplace"
 label var ent_location_3 "Located on street with other businesses"
 label var ent_location_4 "Located in residential area"
 label values ent_location_1 ent_location_2 ent_location_3 ent_location_4 yesno
-
-
-
-
 
 
 
@@ -2232,7 +2234,8 @@ label var unpaid_emp_share_2024 "Share of unpaid employment in total employment 
 ==============================================================================*/
 
 
-global ent_d_contr_ipw "i.Gender i.CIBILscore i.HighestEducation i.Religion i.Community i.MaritalStatus i.OwnRentedHouse i.TypeofDwelling i.CAPBeneficiary i.Typeofownership i.Existingbusiness i.Category_of_enterprise i.Water i.Equipmentavailability i.Skilledlaboravailability i.B2C i.B2B i.Riskmitigationplan i.LoanCategory"
+encode Gender, gen(Gender_new)
+global ent_d_contr_ipw "i.Gender_new i.CIBILscore i.HighestEducation i.Religion i.Community i.MaritalStatus i.OwnRentedHouse i.TypeofDwelling i.CAPBeneficiary i.Typeofownership i.Existingbusiness i.Category_of_enterprise i.Water i.Equipmentavailability i.Skilledlaboravailability i.B2C i.B2B i.Riskmitigationplan i.LoanCategory"
 
 global ent_c_contr_ipw "age_entrepreneur ECP_Score NumberofHouseholdmembers HouseholdIncome HouseholdConsumption HouseholdSavings OtherSourceofincome ActualWorkingCapital TotalFixedCost RequestedLoanAmount Vehicle Householdassets Jewels Cashatbank Cashathand ent_asset_index CurrentSupplyAnnual PresentDemandAnnual"
 
@@ -2260,8 +2263,6 @@ histogram ipw if treatment_285 == 0, title("Distribution of Final IPW Weights (C
 
 
 
-
-
 * Annual
 gen annual_disbursement_date = yofd(disbursement_date)
 format annual_disbursement_date %ty
@@ -2273,7 +2274,6 @@ format halfyearly_disbursement_date %th
 variable creation end
 
 
-surv pr rev bps overall utna nhi before we scale up, piolot run in experiment setup, strategy, segment , invest improve not only size and struture of investment wich is important for firm expansion , working captal not much change, innovation beccuase market linked activity is not strong, BP one item add about market linkage, major high- mployment improve (expansion) not temp which seasonal, but perm increase , MGP long term growth
 
 
 
