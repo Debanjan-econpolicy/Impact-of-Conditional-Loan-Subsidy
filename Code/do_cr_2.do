@@ -89,7 +89,7 @@ drop if inlist(key, "uuid:be7b0fd4-08d9-45c2-9bba-11e7a00dcbd0",				///
 
 **merge 1:1 enterprise_id using "C:\Users\Debanjan Das\Desktop\TNRTP\MGP\admin data\Sampling\MGP_sample_final.dta", keepusing(Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched cohort_new Disbursement_Amount) gen(psm_merge)
 
-merge 1:1 enterprise_id using "$raw\MGP_sample_final_with_backup.dta", keepusing(Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched app_sub_date quarterly_submission_date disbursement_date quarterly_disbursement_date cohort_new Disbursement_Amount CIBILscore age_entrepreneur Gender CIBILscore ECP_Score HighestEducation Religion Community MaritalStatus NumberofHouseholdmembers  HouseholdIncome HouseholdConsumption HouseholdSavings OwnRentedHouse TypeofDwelling CAPBeneficiary OtherSourceofincome Typeofownership Existingbusiness ActualWorkingCapital TotalFixedCost RequestedLoanAmount Category_of_enterprise Vehicle Householdassets Jewels Cashatbank Cashathand ent_asset_index Water Equipmentavailability Skilledlaboravailability B2C B2B Riskmitigationplan  LoanCategory CurrentSupplyAnnual PresentDemandAnnual rejection_reasons_encode) gen(psm_merge) force
+merge 1:1 enterprise_id using "$raw\MGP_sample_final_with_backup.dta", keepusing(ApplicationID Religion Electricity Water B2C B2B Riskmitigationplan Category_of_enterprise TypeofDwelling pscore_lasso ipw _est_logit_lasso_1 _pscore _treated _support _weight _n1 _nn _pdif matched app_sub_date quarterly_submission_date disbursement_date quarterly_disbursement_date cohort_new Disbursement_Amount CIBILscore age_entrepreneur Gender CIBILscore ECP_Score HighestEducation Religion Community MaritalStatus NumberofHouseholdmembers  HouseholdIncome HouseholdConsumption HouseholdSavings OwnRentedHouse TypeofDwelling CAPBeneficiary OtherSourceofincome Typeofownership Existingbusiness ActualWorkingCapital TotalFixedCost RequestedLoanAmount Category_of_enterprise Vehicle Householdassets Jewels Cashatbank Cashathand ent_asset_index Water Equipmentavailability Skilledlaboravailability B2C B2B Riskmitigationplan  LoanCategory CurrentSupplyAnnual PresentDemandAnnual rejection_reasons_encode) gen(psm_merge) force
 
 keep if (psm_merge==3)
 
@@ -2263,6 +2263,10 @@ histogram ipw if treatment_285 == 0, title("Distribution of Final IPW Weights (C
 
 
 
+count if treatment_285 == 1 & disbursement_date  == .							//All disbursed on 2024q2, 24 missings
+
+
+
 * Annual
 gen annual_disbursement_date = yofd(disbursement_date)
 format annual_disbursement_date %ty
@@ -2270,6 +2274,11 @@ format annual_disbursement_date %ty
 * Half-yearly (semi-annual)
 gen halfyearly_disbursement_date = hofd(disbursement_date)
 format halfyearly_disbursement_date %th
+
+
+
+
+
 
 variable creation end
 

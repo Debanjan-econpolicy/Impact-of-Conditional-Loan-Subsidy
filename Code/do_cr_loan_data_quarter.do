@@ -1,6 +1,11 @@
 count if sec6_q1 == 1 & sec6_q3 == 0
 replace sec6_q1 = 0 if sec6_q3 == 0
 
+sum sec6_q3, d
+forval i = 1/`r(max)' {
+	replace sec6_q5_`i' = disbursement_date if inlist(sec6_q4_`i', 7) & treatment_285 == 1 & disbursement_date != .
+}
+
 
 /*==============================================================================
                     Loan Variables on Quarterly Basis (2022-2025)                       
@@ -584,258 +589,10 @@ cap drop total_loan_remaining_2025_Q3 total_loan_remaining_2025_Q4
 
 
 
-/*==============================================================================
-                       Interest Rate Variables                            
-==============================================================================*/
-
-destring annual_interest_rate_1 annual_interest_rate_2 annual_interest_rate_3, replace
-sum annual_interest_rate_1 annual_interest_rate_2 annual_interest_rate_3  //SurveyCTO generated Interest rate variable
-
-
-
-/* Calculate quarterly interest rates for all loans with compounding */
-sum loan_count, d
-local max_loan = r(max)
-
-forvalues i = 1/`max_loan' {
-    gen q_int_`i' = .
-    
-    // Annual to quarterly with compounding: (1 + r/100)^(1/4) - 1) * 100
-    replace q_int_`i' = (((1 + annual_interest_rate_`i'/100)^(1/4)) - 1) * 100 if sec6_q18_`i' == 1 & !missing(sec6_q17_`i')
-    
-    // Monthly to quarterly with compounding: (1 + r/100)^3 - 1) * 100
-    replace q_int_`i' = (((1 + annual_interest_rate_`i'/100)^3) - 1) * 100 if sec6_q18_`i' == 2 & !missing(sec6_q17_`i')
-    
-    // Weekly to quarterly with compounding: (1 + r/100)^13 - 1) * 100
-    replace q_int_`i' = (((1 + annual_interest_rate_`i'/100)^13) - 1) * 100 if sec6_q18_`i' == 3 & !missing(sec6_q17_`i')
-    
-    // Daily to quarterly with compounding: (1 + r/100)^91.25 - 1) * 100
-    replace q_int_`i' = (((1 + annual_interest_rate_`i'/100)^91.25) - 1) * 100 if sec6_q18_`i' == 4 & !missing(sec6_q17_`i')
-    
-    label var q_int_`i' "Quarterly interest rate for loan `i' with compounding"
-}
-
-/* Convert annual interest rates to quarterly rates with compounding */
-
-// Create quarterly interest rate variables
-gen q_annual_interest_rate_1 = .
-gen q_annual_interest_rate_2 = .
-gen q_annual_interest_rate_3 = .
-
-// Convert annual to quarterly: (1 + annual_rate/100)^(1/4) - 1) * 100
-replace q_annual_interest_rate_1 = (((1 + annual_interest_rate_1/100)^(1/4)) - 1) * 100 if !missing(annual_interest_rate_1)
-replace q_annual_interest_rate_2 = (((1 + annual_interest_rate_2/100)^(1/4)) - 1) * 100 if !missing(annual_interest_rate_2)
-replace q_annual_interest_rate_3 = (((1 + annual_interest_rate_3/100)^(1/4)) - 1) * 100 if !missing(annual_interest_rate_3)
-
-// Add labels
-label var q_annual_interest_rate_1 "Quarterly interest rate 1 (converted from annual with compounding)"
-label var q_annual_interest_rate_2 "Quarterly interest rate 2 (converted from annual with compounding)"
-label var q_annual_interest_rate_3 "Quarterly interest rate 3 (converted from annual with compounding)"
-
-// Check the results
-sum q_annual_interest_rate_1 q_annual_interest_rate_2 q_annual_interest_rate_3
-
-
-
-
-
-
-/* Calculate maximum quarterly interest rate across all loans */
-egen max_qtr_int_rate = rowmax(q_annual_interest_rate_*)
-label var max_qtr_int_rate "Maximum quarterly interest rate across all loans (%)"
-
-sum loan_count, d
-local max_loan = r(max)
-/* Create formal and informal quarterly interest rate variables for each loan */
-forvalues i = 1/`max_loan' {
-    /* Create temporary variables for rates by type */
-    gen temp_formal_qtr_int_`i' = q_annual_interest_rate_`i' if inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
-    gen temp_informal_qtr_int_`i' = q_annual_interest_rate_`i' if inlist(sec6_q4_`i', 1, 3)
-}
-
-/* Calculate average quarterly interest rates by source */
-egen avg_formal_qtr_int_rate = rowmean(temp_formal_qtr_int_*)
-egen avg_informal_qtr_int_rate = rowmean(temp_informal_qtr_int_*)
-
-label var avg_formal_qtr_int_rate "Average quarterly interest rate for formal loans (%)"
-label var avg_informal_qtr_int_rate "Average quarterly interest rate for informal loans (%)"
-
-
-
-
-cap drop temp_formal_qtr_int_* temp_informal_qtr_int_*
-
-/*==============================================================================
-                   Quarterly Interest Rate Variables by Time Period (2022-2025)                            
-==============================================================================*/
-
-/* Create quarterly interest rate variables by time period */
-forval year = 2022/2025 {
-    /* Initialize variables for each quarter */
-    gen avg_qtr_int_rate_`year'_Q1 = . 
-    gen avg_qtr_int_rate_`year'_Q2 = .
-    gen avg_qtr_int_rate_`year'_Q3 = .
-    gen avg_qtr_int_rate_`year'_Q4 = .
-    gen formal_qtr_int_rate_`year'_Q1 = .
-    gen formal_qtr_int_rate_`year'_Q2 = .
-    gen formal_qtr_int_rate_`year'_Q3 = .
-    gen formal_qtr_int_rate_`year'_Q4 = .
-    gen informal_qtr_int_rate_`year'_Q1 = .
-    gen informal_qtr_int_rate_`year'_Q2 = .
-    gen informal_qtr_int_rate_`year'_Q3 = .
-    gen informal_qtr_int_rate_`year'_Q4 = .
-    
-    /* Label variables */
-    label var avg_qtr_int_rate_`year'_Q1 "Average quarterly interest rate in `year' Q1 (Jan-Mar)"
-    label var avg_qtr_int_rate_`year'_Q2 "Average quarterly interest rate in `year' Q2 (Apr-Jun)"
-    label var avg_qtr_int_rate_`year'_Q3 "Average quarterly interest rate in `year' Q3 (Jul-Sep)"
-    label var avg_qtr_int_rate_`year'_Q4 "Average quarterly interest rate in `year' Q4 (Oct-Dec)"
-    label var formal_qtr_int_rate_`year'_Q1 "Formal loan quarterly interest rate in `year' Q1"
-    label var formal_qtr_int_rate_`year'_Q2 "Formal loan quarterly interest rate in `year' Q2"
-    label var formal_qtr_int_rate_`year'_Q3 "Formal loan quarterly interest rate in `year' Q3"
-    label var formal_qtr_int_rate_`year'_Q4 "Formal loan quarterly interest rate in `year' Q4"
-    label var informal_qtr_int_rate_`year'_Q1 "Informal loan quarterly interest rate in `year' Q1"
-    label var informal_qtr_int_rate_`year'_Q2 "Informal loan quarterly interest rate in `year' Q2"
-    label var informal_qtr_int_rate_`year'_Q3 "Informal loan quarterly interest rate in `year' Q3"
-    label var informal_qtr_int_rate_`year'_Q4 "Informal loan quarterly interest rate in `year' Q4"
-}
-
-
-sum loan_count, d
-local max_loan = r(max)
-
-/* Fill in quarterly interest rate variables based on loan start dates */
-forvalues i = 1/`max_loan' {
-    forval year = 2022/2025 {
-        /* Q1: Jan-Mar */
-        /* If loan was taken in this quarter, record its QUARTERLY interest rate */
-        replace avg_qtr_int_rate_`year'_Q1 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01jan`year') & sec6_q5_`i' <= td(31mar`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i')
-            
-        /* Record by source type */
-        replace formal_qtr_int_rate_`year'_Q1 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01jan`year') & sec6_q5_`i' <= td(31mar`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-            & inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
-            
-        replace informal_qtr_int_rate_`year'_Q1 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01jan`year') & sec6_q5_`i' <= td(31mar`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-            & inlist(sec6_q4_`i', 1, 3)
-        
-        /* Q2: Apr-Jun */
-        replace avg_qtr_int_rate_`year'_Q2 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01apr`year') & sec6_q5_`i' <= td(30jun`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i')
-            
-        replace formal_qtr_int_rate_`year'_Q2 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01apr`year') & sec6_q5_`i' <= td(30jun`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-            & inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
-            
-        replace informal_qtr_int_rate_`year'_Q2 = q_annual_interest_rate_`i' ///
-            if sec6_q5_`i' >= td(01apr`year') & sec6_q5_`i' <= td(30jun`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-            & inlist(sec6_q4_`i', 1, 3)
-        
-        /* Q3: Jul-Sep (only for years before 2025) */
-        if `year' < 2025 {
-            replace avg_qtr_int_rate_`year'_Q3 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01jul`year') & sec6_q5_`i' <= td(30sep`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i')
-                
-            replace formal_qtr_int_rate_`year'_Q3 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01jul`year') & sec6_q5_`i' <= td(30sep`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-                & inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
-                
-            replace informal_qtr_int_rate_`year'_Q3 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01jul`year') & sec6_q5_`i' <= td(30sep`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-                & inlist(sec6_q4_`i', 1, 3)
-        }
-        
-        /* Q4: Oct-Dec (only for years before 2025) */
-        if `year' < 2025 {
-            replace avg_qtr_int_rate_`year'_Q4 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01oct`year') & sec6_q5_`i' <= td(31dec`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i')
-                
-            replace formal_qtr_int_rate_`year'_Q4 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01oct`year') & sec6_q5_`i' <= td(31dec`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-                & inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
-                
-            replace informal_qtr_int_rate_`year'_Q4 = q_annual_interest_rate_`i' ///
-                if sec6_q5_`i' >= td(01oct`year') & sec6_q5_`i' <= td(31dec`year') & !missing(sec6_q5_`i') & !missing(q_annual_interest_rate_`i') ///
-                & inlist(sec6_q4_`i', 1, 3)
-        }
-    }
-}
-
 
 
 /*==============================================================================
-                   Active Loan Quarterly Interest Burden Variables                            
-==============================================================================*/
-
-/* Create quarterly interest burden for active loans */
-forval year = 2022/2025 {
-    gen active_qtr_int_burden_`year'_Q1 = 0 if !missing(any_loan)
-    gen active_qtr_int_burden_`year'_Q2 = 0 if !missing(any_loan)
-    gen active_qtr_int_burden_`year'_Q3 = 0 if !missing(any_loan)
-    gen active_qtr_int_burden_`year'_Q4 = 0 if !missing(any_loan)
-    
-    label var active_qtr_int_burden_`year'_Q1 "Quarterly interest burden for active loans in `year' Q1"
-    label var active_qtr_int_burden_`year'_Q2 "Quarterly interest burden for active loans in `year' Q2"
-    label var active_qtr_int_burden_`year'_Q3 "Quarterly interest burden for active loans in `year' Q3"
-    label var active_qtr_int_burden_`year'_Q4 "Quarterly interest burden for active loans in `year' Q4"
-}
-drop active_qtr_int_burden_2025_Q3 active_qtr_int_burden_2025_Q4
-
-/* For each active loan in each quarter, add its quarterly interest rate burden */
-sum loan_count, d
-local max_loan = r(max)
-
-forvalues loannum = 1/`max_loan' {
-    forval year = 2022/2025 {
-        /* Q1: Jan-Mar */
-        replace active_qtr_int_burden_`year'_Q1 = active_qtr_int_burden_`year'_Q1 + q_annual_interest_rate_`loannum' ///
-            if sec6_q5_`loannum' <= td(31mar`year') & (loan_end_date_`loannum' >= td(01jan`year') | sec6_q6_`loannum' == 1) ///
-            & !missing(sec6_q5_`loannum') & !missing(q_annual_interest_rate_`loannum')
-        
-        /* Q2: Apr-Jun */
-        replace active_qtr_int_burden_`year'_Q2 = active_qtr_int_burden_`year'_Q2 + q_annual_interest_rate_`loannum' ///
-            if sec6_q5_`loannum' <= td(30jun`year') & (loan_end_date_`loannum' >= td(01apr`year') | sec6_q6_`loannum' == 1) ///
-            & !missing(sec6_q5_`loannum') & !missing(q_annual_interest_rate_`loannum')
-        
-        /* Q3: Jul-Sep */
-        if `year' < 2025 {
-            replace active_qtr_int_burden_`year'_Q3 = active_qtr_int_burden_`year'_Q3 + q_annual_interest_rate_`loannum' ///
-                if sec6_q5_`loannum' <= td(30sep`year') & (loan_end_date_`loannum' >= td(01jul`year') | sec6_q6_`loannum' == 1) ///
-                & !missing(sec6_q5_`loannum') & !missing(q_annual_interest_rate_`loannum')
-        }
-        
-        /* Q4: Oct-Dec */
-        if `year' < 2025 {
-            replace active_qtr_int_burden_`year'_Q4 = active_qtr_int_burden_`year'_Q4 + q_annual_interest_rate_`loannum' ///
-                if sec6_q5_`loannum' <= td(31dec`year') & (loan_end_date_`loannum' >= td(01oct`year') | sec6_q6_`loannum' == 1) ///
-                & !missing(sec6_q5_`loannum') & !missing(q_annual_interest_rate_`loannum')
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*==============================================================================
-                       Interest Rate Variables - CLEAN AVERAGING                          
+                       Interest Rate Variables                    
 ==============================================================================*/
 
 destring annual_interest_rate_1 annual_interest_rate_2 annual_interest_rate_3, replace
@@ -2520,10 +2277,6 @@ gen never_treat = (first_treat == .)
 sum first_treat
 gen last_cohort = (first_treat == r(max)) | never_treat
 
-// ============================================================================
-// STEP 9: CREATE ADDITIONAL USEFUL VARIABLES
-// ============================================================================
-
 // Create block-level identifier for clustering
 encode BlockCode, gen(block_id)
 
@@ -2573,6 +2326,9 @@ foreach var in loan_count formal_loan informal_loan formal_count informal_count 
 csdid log_active_int_burden, ivar(enterprise_id_num) time(time) gvar(gvar) notyet 
 estat all
 estat event, window(-4 8) estore(cs_log_active_int_burden)
+event_plot cs_log_active_int_burden, default_look graph_opt(xtitle("Quarters relative to treatment") ytitle("RoI") ///
+	title("Effect of Matching Grant on RoI") xlabel(-4(1)8)) stub_lag(Tp#) stub_lead(Tm#) together 
+
 
 
 csdid log_loan_remain, ivar(enterprise_id_num) time(time) gvar(gvar) notyet 
@@ -2585,7 +2341,12 @@ estat event, window(-4 8) estore(cs_log_loan_remain)
 
 
 
-
+csdid loan_count , ivar(enterprise_id_num) time(time) gvar(gvar) notyet 
+estat all
+estat event, window(-4 8) estore(cs_loan_count)
+event_plot cs_loan_count, default_look graph_opt(xtitle("Quarters relative to treatment") ytitle("Effect on Loan Count") ///
+	title("Effect of CLS on Loan Count") xlabel(-4(1)8)) stub_lag(Tp#) stub_lead(Tm#) together 
+bacondecomp loan_count post, ddetail
 
 
 
