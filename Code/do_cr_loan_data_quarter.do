@@ -616,6 +616,9 @@ forvalues i = 1/`max_loan' {
 egen max_qtr_int_rate = rowmax(q_int_*)
 label var max_qtr_int_rate "Maximum quarterly interest rate across all loans (%)"
 
+sum loan_count, d
+local max_loan = r(max)
+
 /* Create formal and informal quarterly interest rate variables */
 forvalues i = 1/`max_loan' {
     gen temp_formal_qtr_int_`i' = q_int_`i' if inlist(sec6_q4_`i', 2, 4, 5, 6, 7)
@@ -2313,7 +2316,7 @@ bysort enterprise_id_num : replace active_int_burden = . if active_loan == 0
 
 
 gen asi_active_int_burden = asinh(active_int_burden)
-zscore active_int_burden
+zscore active_int_burden loan_count
 gen log_active_int_burden = log(active_int_burden)
 
 
@@ -2357,12 +2360,15 @@ bacondecomp loan_count post, ddetail
 
 
 
+
+
+
 /*==============================================================================
                     STAGGERED DID - FINANCIAL OUTCOMES
 ==============================================================================*/
 eststo clear
 
-foreach Y in log_active_int_burden log_loan_remain {
+foreach Y in z_loan_count log_active_int_burden log_loan_remain {
     // Run csdid once and save RIF file
     csdid `Y' if ent_running == 1, ivar(enterprise_id_num) time(time) gvar(gvar) notyet method(dripw) saverif(_temp_`Y') replace
     local n_obs = e(N)
@@ -2373,7 +2379,10 @@ foreach Y in log_active_int_burden log_loan_remain {
     estadd local Controls "No"
     estadd local Enterprise_FE "Yes" 
     estadd local Time_FE "Yes"
-    if "`Y'" == "log_active_int_burden" {
+    if "`Y'" == "z_loan_count" {
+        eststo count_event
+    }
+    else if "`Y'" == "log_active_int_burden" {
         eststo int_event
     }
     else if "`Y'" == "log_loan_remain" {
@@ -2388,7 +2397,10 @@ foreach Y in log_active_int_burden log_loan_remain {
     estadd local Controls "No"
     estadd local Enterprise_FE "Yes" 
     estadd local Time_FE "Yes"
-    if "`Y'" == "log_active_int_burden" {
+    if "`Y'" == "z_loan_count" {
+        eststo count_group
+    }
+    else if "`Y'" == "log_active_int_burden" {
         eststo int_group
     }
     else if "`Y'" == "log_loan_remain" {
@@ -2404,7 +2416,10 @@ foreach Y in log_active_int_burden log_loan_remain {
     estadd local Controls "No"
     estadd local Enterprise_FE "Yes" 
     estadd local Time_FE "Yes"
-    if "`Y'" == "log_active_int_burden" {
+    if "`Y'" == "z_loan_count" {
+        eststo count_cal
+    }
+    else if "`Y'" == "log_active_int_burden" {
         eststo int_cal
     }
     else if "`Y'" == "log_loan_remain" {
@@ -2420,7 +2435,10 @@ foreach Y in log_active_int_burden log_loan_remain {
     estadd local Controls "No"
     estadd local Enterprise_FE "Yes" 
     estadd local Time_FE "Yes"
-    if "`Y'" == "log_active_int_burden" {
+    if "`Y'" == "z_loan_count" {
+        eststo count_att
+    }
+    else if "`Y'" == "log_active_int_burden" {
         eststo int_att
     }
     else if "`Y'" == "log_loan_remain" {
@@ -2438,14 +2456,14 @@ foreach Y in log_active_int_burden log_loan_remain {
 
 // Panel A: Simple ATT Effects
 #delimit ;
-esttab int_att loan_att using "$Scratch/Loan_DiD.rtf", 
+esttab count_att int_att loan_att using "$Scratch/Loan_DiD.rtf", 
     replace 
     label 
     nonumbers
     nogaps
     b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
     title("Table: Impact of Matching Grant Program on Financial Outcomes") 
-    mtitles("Interest Burden (Log)" "Indebtedness (Log)") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
     stats(N Controls Enterprise_FE Time_FE, 
         fmt(%9.0g %s %s %s) 
         labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
@@ -2455,7 +2473,7 @@ esttab int_att loan_att using "$Scratch/Loan_DiD.rtf",
 
 // Panel B: Group-Specific Effects
 #delimit ;
-esttab int_group loan_group using "$Scratch/Loan_DiD.rtf", 
+esttab count_group int_group loan_group using "$Scratch/Loan_DiD.rtf", 
     append 
     label 
     nonumbers 
@@ -2477,38 +2495,38 @@ esttab int_group loan_group using "$Scratch/Loan_DiD.rtf",
     addnotes("Panel B shows treatment effects by first treatment quarter." 
              "Standard errors in parentheses. * p<0.10, ** p<0.05, *** p<0.01."
              "Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
-             "with not-yet-treated control units. Outcomes are in log form.") ;
+             "with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form.") ;
 #delimit cr
 
 /*==============================================================================
                     TABLE: Simple ATT Effects (Individual)
 ==============================================================================*/
 #delimit ;
-esttab int_att loan_att using "$Scratch/Financial_ATT.rtf", 
+esttab count_att int_att loan_att using "$Scratch/Financial_ATT.rtf", 
     replace 
     label 
     nogaps
     b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
     title("Average Treatment Effects on Financial Outcomes") 
-    mtitles("Interest Burden (Log)" "Indebtedness (Log)") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
     stats(N Controls Enterprise_FE Time_FE, 
         fmt(%9.0g %s %s %s) 
         labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
     addnotes("Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
-             "with not-yet-treated control units. Outcomes are in log form.") ;
+             "with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form.") ;
 #delimit cr
 
 /*==============================================================================
                     TABLE: GROUP-SPECIFIC EFFECTS (Individual)
 ==============================================================================*/
 #delimit ;
-esttab int_group loan_group using "$Scratch/Financial_Group_Effects.rtf", 
+esttab count_group int_group loan_group using "$Scratch/Financial_Group_Effects.rtf", 
     replace 
     label 
     nogaps
     b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
     title("Treatment Effects on Financial Outcomes by Cohort") 
-    mtitles("Interest Burden (Log)" "Indebtedness (Log)") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
     varlabels(GAverage "Overall Group Average"
               G251 "2022Q3 Cohort" 
               G252 "2022Q4 Cohort"
@@ -2529,13 +2547,13 @@ esttab int_group loan_group using "$Scratch/Financial_Group_Effects.rtf",
                     TABLE: EVENT STUDY TABLE 
 ==============================================================================*/
 #delimit ;
-esttab int_event loan_event using "$Scratch/Loan_Event_Study.rtf", 
+esttab count_event int_event loan_event using "$Scratch/Loan_Event_Study.rtf", 
     replace 
     label 
     nogaps
     b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
     title("Dynamic Treatment Effects on Financial Outcomes") 
-    mtitles("(1) Interest Burden (Log)" "(2) Indebtedness (Log)") 
+    mtitles("(1) Loan Count (Z-score)" "(2) Interest Burden (Log)" "(3) Indebtedness (Log)") 
     keep(Pre_avg Post_avg Tm* Tp*)
     order(Pre_avg Post_avg Tm4 Tm3 Tm2 Tm1 Tp0 Tp1 Tp2 Tp3 Tp4 Tp5 Tp6 Tp7 Tp8)
     varlabels(Pre_avg "Pre-treatment average"
@@ -2557,7 +2575,7 @@ esttab int_event loan_event using "$Scratch/Loan_Event_Study.rtf",
         fmt(%9.0g %s %s %s) 
         labels("Observations" "Controls" "Enterprise FE" "Time FE"))
     addnotes("Notes: Event study coefficients from Callaway and Sant'Anna (2021) estimator."
-             "t=0 is the quarter of first grant receipt. Outcomes are in log form."
+             "t=0 is the quarter of first grant receipt. Log outcomes are in log form."
              "Standard errors clustered by enterprise. *** p<0.01, ** p<0.05, * p<0.1") ;
 #delimit cr
 
@@ -2565,13 +2583,13 @@ esttab int_event loan_event using "$Scratch/Loan_Event_Study.rtf",
                     TABLE: CALENDAR EFFECTS TABLE (Optional)
 ==============================================================================*/
 #delimit ;
-esttab int_cal loan_cal using "$Scratch/Financial_Calendar_Effects.rtf", 
+esttab count_cal int_cal loan_cal using "$Scratch/Financial_Calendar_Effects.rtf", 
     replace 
     label 
     nogaps
     b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
     title("Calendar Time Effects on Financial Outcomes") 
-    mtitles("Interest Burden (Log)" "Indebtedness (Log)") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
     stats(N Controls Enterprise_FE Time_FE, 
         fmt(%9.0g %s %s %s) 
         labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
@@ -2584,6 +2602,26 @@ esttab int_cal loan_cal using "$Scratch/Financial_Calendar_Effects.rtf",
 /*==============================================================================
                     EVENT STUDY PLOTS
 ==============================================================================*/
+
+// Plot for Loan Count (Z-score)
+estimates restore count_event
+event_plot, default_look ///
+    graph_opt(xtitle("Quarters relative to treatment") ytitle("Loan Count (Z-score)") ///
+    title("Effect of Matching Grant on Loan Count", size(medlarge)) ///
+    xlabel(-4(1)8) ylabel(, angle(horizontal) format(%9.2f)) ///
+    xline(0, lcolor(red) lpattern(dash) lwidth(medium)) ///
+    yline(0, lcolor(gs10) lpattern(solid) lwidth(thin)) ///
+    graphregion(color(white) margin(medium)) ///
+    plotregion(margin(medium)) ///
+    legend(order(1 "Pre-treatment" 3 "Post-treatment") position(6) rows(1) size(medium)) ///
+    name(loan_count_plot, replace)) ///
+    stub_lag(Tp#) stub_lead(Tm#) ///
+    lead_opt(color(maroon) lwidth(thick) msymbol(triangle) msize(medium)) ///
+    lead_ci_opt(color(maroon%30) lwidth(none)) ///
+    lag_opt(color(forest_green) lwidth(thick) msymbol(circle) msize(medium)) ///
+    lag_ci_opt(color(forest_green%30) lwidth(none)) ///
+    alpha(0.05)
+graph export "$Scratch/loan_count_event_study.png", replace
 
 // Plot for Interest Burden
 estimates restore int_event
@@ -2605,7 +2643,486 @@ event_plot, default_look ///
     alpha(0.05)
 graph export "$Scratch/interest_burden_event_study.png", replace
 
+// Plot for Indebtedness
+estimates restore loan_event
+event_plot, default_look ///
+    graph_opt(xtitle("Quarters relative to treatment") ytitle("Indebtedness (Log)") ///
+    title("Effect of Matching Grant on Indebtedness", size(medlarge)) ///
+    xlabel(-4(1)8) ylabel(, angle(horizontal) format(%9.2f)) ///
+    xline(0, lcolor(red) lpattern(dash) lwidth(medium)) ///
+    yline(0, lcolor(gs10) lpattern(solid) lwidth(thin)) ///
+    graphregion(color(white) margin(medium)) ///
+    plotregion(margin(medium)) ///
+    legend(order(1 "Pre-treatment" 3 "Post-treatment") position(6) rows(1) size(medium)) ///
+    name(indebtedness_plot, replace)) ///
+    stub_lag(Tp#) stub_lead(Tm#) ///
+    lead_opt(color(maroon) lwidth(thick) msymbol(triangle) msize(medium)) ///
+    lead_ci_opt(color(maroon%30) lwidth(none)) ///
+    lag_opt(color(forest_green) lwidth(thick) msymbol(circle) msize(medium)) ///
+    lag_ci_opt(color(forest_green%30) lwidth(none)) ///
+    alpha(0.05)
+graph export "$Scratch/indebtedness_event_study.png", replace
 
+
+
+
+
+
+
+
+
+
+
+
+/*==============================================================================
+                    STAGGERED DID - FINANCIAL OUTCOMES
+==============================================================================*/
+eststo clear
+
+foreach Y in z_loan_count log_active_int_burden log_loan_remain {
+    // Run csdid once and save RIF file
+    csdid `Y' if ent_running == 1, ivar(enterprise_id_num) time(time) gvar(gvar) notyet method(dripw) saverif(_temp_`Y') replace
+    local n_obs = e(N)
+    
+    // Store event study results
+    estat event, window(-4 8) post
+    estadd scalar N = `n_obs'
+    estadd local Controls "No"
+    estadd local Enterprise_FE "Yes" 
+    estadd local Time_FE "Yes"
+    if "`Y'" == "z_loan_count" {
+        eststo count_event
+    }
+    else if "`Y'" == "log_active_int_burden" {
+        eststo int_event
+    }
+    else if "`Y'" == "log_loan_remain" {
+        eststo loan_event  
+    }
+    
+    // Store group-specific results (using saved RIF file)
+    preserve
+    use _temp_`Y', clear
+    csdid_stats group, post
+    estadd scalar N = `n_obs'
+    estadd local Controls "No"
+    estadd local Enterprise_FE "Yes" 
+    estadd local Time_FE "Yes"
+    if "`Y'" == "z_loan_count" {
+        eststo count_group
+    }
+    else if "`Y'" == "log_active_int_burden" {
+        eststo int_group
+    }
+    else if "`Y'" == "log_loan_remain" {
+        eststo loan_group  
+    }
+    restore
+    
+    // Store calendar results (using saved RIF file)
+    preserve
+    use _temp_`Y', clear
+    csdid_stats calendar, post
+    estadd scalar N = `n_obs'
+    estadd local Controls "No"
+    estadd local Enterprise_FE "Yes" 
+    estadd local Time_FE "Yes"
+    if "`Y'" == "z_loan_count" {
+        eststo count_cal
+    }
+    else if "`Y'" == "log_active_int_burden" {
+        eststo int_cal
+    }
+    else if "`Y'" == "log_loan_remain" {
+        eststo loan_cal  
+    }
+    restore
+    
+    // Store simple ATT results (using saved RIF file)
+    preserve
+    use _temp_`Y', clear
+    csdid_stats simple, post
+    estadd scalar N = `n_obs' 
+    estadd local Controls "No"
+    estadd local Enterprise_FE "Yes" 
+    estadd local Time_FE "Yes"
+    if "`Y'" == "z_loan_count" {
+        eststo count_att
+    }
+    else if "`Y'" == "log_active_int_burden" {
+        eststo int_att
+    }
+    else if "`Y'" == "log_loan_remain" {
+        eststo loan_att  
+    }
+    restore
+    
+    // Clean up temporary RIF file
+    erase _temp_`Y'.dta
+}
+
+/*==============================================================================
+           MAIN RESULTS TABLE (Panel A: ATT + Panel B: Groups)
+==============================================================================*/
+
+// Panel A: Simple ATT Effects - RTF Format
+#delimit ;
+esttab count_att int_att loan_att using "$Scratch/Loan_DiD.rtf", 
+    replace 
+    label 
+    nonumbers
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Table: Impact of Matching Grant Program on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    posthead("Panel A: Average Treatment Effects")
+    addnotes("Panel A shows overall Average Treatment Effects (ATT).") ;
+#delimit cr
+
+// Panel B: Group-Specific Effects - RTF Format
+#delimit ;
+esttab count_group int_group loan_group using "$Scratch/Loan_DiD.rtf", 
+    append 
+    label 
+    nonumbers 
+    nomtitles
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    varlabels(GAverage "Overall Group Average"
+              G251 "2022Q3 Cohort" 
+              G252 "2022Q4 Cohort"
+              G253 "2023Q1 Cohort"
+              G254 "2023Q2 Cohort" 
+              G255 "2023Q3 Cohort"
+              G256 "2023Q4 Cohort"
+              G257 "2024Q1 Cohort")
+    posthead("Panel B: Treatment Effects by Cohort")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    addnotes("Panel B shows treatment effects by first treatment quarter." 
+             "Standard errors in parentheses. * p<0.10, ** p<0.05, *** p<0.01."
+             "Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
+             "with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form.") ;
+#delimit cr
+
+
+
+// Panel A: Simple ATT Effects - LaTeX Format (Table content only)
+#delimit ;
+esttab count_att int_att loan_att using "$Scratch/Loan_DiD.tex", 
+    replace 
+    label 
+    nonumbers
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Impact of Matching Grant Program on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    prehead("\begin{table}[H]\centering" "\begin{threeparttable}" "\caption{@title}" "\label{tab:main_results}" "\begin{tabular}{l*{@M}{c}}" "\toprule" "& \multicolumn{@M}{c}{Panel A: Average Treatment Effects} \\" "\cmidrule(lr){2-@span}")
+    posthead("\midrule")
+    postfoot("\midrule" "& \multicolumn{@M}{c}{Panel B: Treatment Effects by Cohort} \\" "\cmidrule(lr){2-@span}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+
+// Panel B: Group-Specific Effects - LaTeX Format (append to same file)
+#delimit ;
+esttab count_group int_group loan_group using "$Scratch/Loan_DiD.tex", 
+    append 
+    label 
+    nonumbers 
+    nomtitles
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    varlabels(GAverage "Overall Group Average"
+              G251 "2022Q3 Cohort" 
+              G252 "2022Q4 Cohort"
+              G253 "2023Q1 Cohort"
+              G254 "2023Q2 Cohort" 
+              G255 "2023Q3 Cohort"
+              G256 "2023Q4 Cohort"
+              G257 "2024Q1 Cohort")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    prehead("") 
+    postfoot("\bottomrule" "\end{tabular}" "\begin{tablenotes}" "\footnotesize" 
+             "\item Panel A shows overall Average Treatment Effects (ATT). Panel B shows treatment effects by first treatment quarter." 
+             "\item Standard errors in parentheses. {*} p\$<\$0.10, {**} p\$<\$0.05, {***} p\$<\$0.01."
+             "\item Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
+             "\item with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form." 
+             "\end{tablenotes}" "\end{threeparttable}" "\end{table}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+/*==============================================================================
+                    TABLE: Simple ATT Effects (Individual)
+==============================================================================*/
+// RTF Format
+#delimit ;
+esttab count_att int_att loan_att using "$Scratch/Financial_ATT.rtf", 
+    replace 
+    label 
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Average Treatment Effects on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    addnotes("Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
+             "with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form.") ;
+#delimit cr
+
+// LaTeX Format (Table content only)
+#delimit ;
+esttab count_att int_att loan_att using "$Scratch/Financial_ATT.tex", 
+    replace 
+    label 
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Average Treatment Effects on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    prehead("\begin{table}[H]\centering" "\begin{threeparttable}" "\caption{@title}" "\label{tab:att_effects}" "\begin{tabular}{l*{@M}{c}}" "\toprule")
+    postfoot("\bottomrule" "\end{tabular}" "\begin{tablenotes}" "\footnotesize" 
+             "\item Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator" 
+             "\item with not-yet-treated control units. Loan count is standardized (z-score); other outcomes are in log form."
+             "\item Standard errors in parentheses. {*} p\$<\$0.10, {**} p\$<\$0.05, {***} p\$<\$0.01."
+             "\end{tablenotes}" "\end{threeparttable}" "\end{table}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+/*==============================================================================
+                    TABLE: GROUP-SPECIFIC EFFECTS (Individual)
+==============================================================================*/
+// RTF Format
+#delimit ;
+esttab count_group int_group loan_group using "$Scratch/Financial_Group_Effects.rtf", 
+    replace 
+    label 
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Treatment Effects on Financial Outcomes by Cohort") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    varlabels(GAverage "Overall Group Average"
+              G251 "2022Q3 Cohort" 
+              G252 "2022Q4 Cohort"
+              G253 "2023Q1 Cohort"
+              G254 "2023Q2 Cohort" 
+              G255 "2023Q3 Cohort"
+              G256 "2023Q4 Cohort"
+              G257 "2024Q1 Cohort")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    addnotes("Standard errors in parentheses. * p<0.10, ** p<0.05, *** p<0.01." 
+             "Each cohort represents enterprises first treated in that quarter." 
+             "Quarter codes: 251=2022Q3, 252=2022Q4, 253=2023Q1, 254=2023Q2, 255=2023Q3, 256=2023Q4, 257=2024Q1") ;
+#delimit cr
+
+// LaTeX Format (Table content only)
+#delimit ;
+esttab count_group int_group loan_group using "$Scratch/Financial_Group_Effects.tex", 
+    replace 
+    label 
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Treatment Effects on Financial Outcomes by Cohort") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    varlabels(GAverage "Overall Group Average"
+              G251 "2022Q3 Cohort" 
+              G252 "2022Q4 Cohort"
+              G253 "2023Q1 Cohort"
+              G254 "2023Q2 Cohort" 
+              G255 "2023Q3 Cohort"
+              G256 "2023Q4 Cohort"
+              G257 "2024Q1 Cohort")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    prehead("\begin{table}[H]\centering" "\begin{threeparttable}" "\caption{@title}" "\label{tab:group_effects}" "\begin{tabular}{l*{@M}{c}}" "\toprule")
+    postfoot("\bottomrule" "\end{tabular}" "\begin{tablenotes}" "\footnotesize" 
+             "\item Standard errors in parentheses. {*} p\$<\$0.10, {**} p\$<\$0.05, {***} p\$<\$0.01." 
+             "\item Each cohort represents enterprises first treated in that quarter." 
+             "\item Quarter codes: 251=2022Q3, 252=2022Q4, 253=2023Q1, 254=2023Q2, 255=2023Q3, 256=2023Q4, 257=2024Q1"
+             "\end{tablenotes}" "\end{threeparttable}" "\end{table}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+/*==============================================================================
+                    TABLE: EVENT STUDY TABLE 
+==============================================================================*/
+// RTF Format
+#delimit ;
+esttab count_event int_event loan_event using "$Scratch/Loan_Event_Study.rtf", 
+    replace 
+    label 
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Dynamic Treatment Effects on Financial Outcomes") 
+    mtitles("(1) Loan Count (Z-score)" "(2) Interest Burden (Log)" "(3) Indebtedness (Log)") 
+    keep(Pre_avg Post_avg Tm* Tp*)
+    order(Pre_avg Post_avg Tm4 Tm3 Tm2 Tm1 Tp0 Tp1 Tp2 Tp3 Tp4 Tp5 Tp6 Tp7 Tp8)
+    varlabels(Pre_avg "Pre-treatment average"
+              Post_avg "Post-treatment average"
+              Tm4 "t-4"
+              Tm3 "t-3" 
+              Tm2 "t-2"
+              Tm1 "t-1"
+              Tp0 "t=0"
+              Tp1 "t+1"
+              Tp2 "t+2"
+              Tp3 "t+3"
+              Tp4 "t+4"
+              Tp5 "t+5"
+              Tp6 "t+6"
+              Tp7 "t+7"
+              Tp8 "t+8")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Controls" "Enterprise FE" "Time FE"))
+    addnotes("Notes: Event study coefficients from Callaway and Sant'Anna (2021) estimator."
+             "t=0 is the quarter of first grant receipt. Loan count is standardized (z-score); other outcomes are in log form."
+             "Standard errors clustered by enterprise. *** p<0.01, ** p<0.05, * p<0.1") ;
+#delimit cr
+
+// LaTeX Format (Table content only)
+#delimit ;
+esttab count_event int_event loan_event using "$Scratch/Loan_Event_Study.tex", 
+    replace 
+    label 
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Dynamic Treatment Effects on Financial Outcomes") 
+    mtitles("(1) Loan Count (Z-score)" "(2) Interest Burden (Log)" "(3) Indebtedness (Log)") 
+    keep(Pre_avg Post_avg Tm* Tp*)
+    order(Pre_avg Post_avg Tm4 Tm3 Tm2 Tm1 Tp0 Tp1 Tp2 Tp3 Tp4 Tp5 Tp6 Tp7 Tp8)
+    varlabels(Pre_avg "Pre-treatment average"
+              Post_avg "Post-treatment average"
+              Tm4 "t-4"
+              Tm3 "t-3" 
+              Tm2 "t-2"
+              Tm1 "t-1"
+              Tp0 "t=0"
+              Tp1 "t+1"
+              Tp2 "t+2"
+              Tp3 "t+3"
+              Tp4 "t+4"
+              Tp5 "t+5"
+              Tp6 "t+6"
+              Tp7 "t+7"
+              Tp8 "t+8")
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Controls" "Enterprise FE" "Time FE"))
+    prehead("\begin{table}[H]\centering" "\begin{threeparttable}" "\caption{@title}" "\label{tab:event_study}" "\begin{tabular}{l*{@M}{c}}" "\toprule")
+    postfoot("\bottomrule" "\end{tabular}" "\begin{tablenotes}" "\footnotesize"
+             "\item Event study coefficients from Callaway and Sant'Anna (2021) estimator."
+             "\item t=0 is the quarter of first grant receipt. Loan count is standardized (z-score); other outcomes are in log form."
+             "\item Standard errors clustered by enterprise. {***} p\$<\$0.01, {**} p\$<\$0.05, {*} p\$<\$0.1"
+             "\end{tablenotes}" "\end{threeparttable}" "\end{table}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+/*==============================================================================
+                    TABLE: CALENDAR EFFECTS TABLE (Optional)
+==============================================================================*/
+// RTF Format
+#delimit ;
+esttab count_cal int_cal loan_cal using "$Scratch/Financial_Calendar_Effects.rtf", 
+    replace 
+    label 
+    nogaps
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Calendar Time Effects on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    addnotes("Standard errors in parentheses. * p<0.10, ** p<0.05, *** p<0.01." 
+             "Calendar time effects show treatment effects by calendar period." 
+             "Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator.") ;
+#delimit cr
+
+// LaTeX Format (Table content only)
+#delimit ;
+esttab count_cal int_cal loan_cal using "$Scratch/Financial_Calendar_Effects.tex", 
+    replace 
+    label 
+    nogaps
+    booktabs
+    b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) 
+    title("Calendar Time Effects on Financial Outcomes") 
+    mtitles("Loan Count (Z-score)" "Interest Burden (Log)" "Indebtedness (Log)") 
+    stats(N Controls Enterprise_FE Time_FE, 
+        fmt(%9.0g %s %s %s) 
+        labels("Observations" "Control Variables" "Enterprise Fixed Effects" "Time Fixed Effects"))
+    prehead("\begin{table}[H]\centering" "\begin{threeparttable}" "\caption{@title}" "\label{tab:calendar_effects}" "\begin{tabular}{l*{@M}{c}}" "\toprule")
+    postfoot("\bottomrule" "\end{tabular}" "\begin{tablenotes}" "\footnotesize"
+             "\item Standard errors in parentheses. {*} p\$<\$0.10, {**} p\$<\$0.05, {***} p\$<\$0.01." 
+             "\item Calendar time effects show treatment effects by calendar period." 
+             "\item Estimation uses Callaway and Sant'Anna (2021) doubly robust difference-in-differences estimator."
+             "\end{tablenotes}" "\end{threeparttable}" "\end{table}") 
+    substitute(\sym{*} * \sym{**} ** \sym{***} ***) ;
+#delimit cr
+
+/*==============================================================================
+                    EVENT STUDY PLOTS
+==============================================================================*/
+
+// Plot for Loan Count (Z-score)
+estimates restore count_event
+event_plot, default_look ///
+    graph_opt(xtitle("Quarters relative to treatment") ytitle("Loan Count (Z-score)") ///
+    title("Effect of Matching Grant on Loan Count", size(medlarge)) ///
+    xlabel(-4(1)8) ylabel(, angle(horizontal) format(%9.2f)) ///
+    xline(0, lcolor(red) lpattern(dash) lwidth(medium)) ///
+    yline(0, lcolor(gs10) lpattern(solid) lwidth(thin)) ///
+    graphregion(color(white) margin(medium)) ///
+    plotregion(margin(medium)) ///
+    legend(order(1 "Pre-treatment" 3 "Post-treatment") position(6) rows(1) size(medium)) ///
+    name(loan_count_plot, replace)) ///
+    stub_lag(Tp#) stub_lead(Tm#) ///
+    lead_opt(color(maroon) lwidth(thick) msymbol(triangle) msize(medium)) ///
+    lead_ci_opt(color(maroon%30) lwidth(none)) ///
+    lag_opt(color(forest_green) lwidth(thick) msymbol(circle) msize(medium)) ///
+    lag_ci_opt(color(forest_green%30) lwidth(none)) ///
+    alpha(0.05)
+graph export "$Scratch/loan_count_event_study.png", replace
+
+// Plot for Interest Burden
+estimates restore int_event
+event_plot, default_look ///
+    graph_opt(xtitle("Quarters relative to treatment") ytitle("Interest Burden (Log)") ///
+    title("Effect of Matching Grant on Interest Burden", size(medlarge)) ///
+    xlabel(-4(1)8) ylabel(, angle(horizontal) format(%9.2f)) ///
+    xline(0, lcolor(red) lpattern(dash) lwidth(medium)) ///
+    yline(0, lcolor(gs10) lpattern(solid) lwidth(thin)) ///
+    graphregion(color(white) margin(medium)) ///
+    plotregion(margin(medium)) ///
+    legend(order(1 "Pre-treatment" 3 "Post-treatment") position(6) rows(1) size(medium)) ///
+    name(interest_burden_plot, replace)) ///
+    stub_lag(Tp#) stub_lead(Tm#) ///
+    lead_opt(color(maroon) lwidth(thick) msymbol(triangle) msize(medium)) ///
+    lead_ci_opt(color(maroon%30) lwidth(none)) ///
+    lag_opt(color(forest_green) lwidth(thick) msymbol(circle) msize(medium)) ///
+    lag_ci_opt(color(forest_green%30) lwidth(none)) ///
+    alpha(0.05)
+graph export "$Scratch/interest_burden_event_study.png", replace
 
 // Plot for Indebtedness
 estimates restore loan_event
