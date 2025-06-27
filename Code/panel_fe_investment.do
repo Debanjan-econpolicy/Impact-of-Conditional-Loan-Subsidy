@@ -1,5 +1,5 @@
-global derived_data "V:\Projects\TNRTP\MGP\Analysis\Data\derived"
-global Scratch "V:\Projects\TNRTP\MGP\Analysis\Scratch"
+global derived_data "V:\Projects\MGP\Analysis\Data\derived"
+global Scratch "V:\Projects\MGP\Analysis\Scratch"
 
 
 /*==============================================================================
@@ -180,6 +180,42 @@ esttab investment_table_1 investment_table_2 investment_table_3 investment_table
 
 
 
+
+eststo clear
+local i=1
+foreach var in invested log_w10_totalinvest count_invest wc_invest ac_invest log_wc_amount log_asset_amount wc_share asset_share {
+    xtreg `var' treat_2022 treat_2023 treat_2024 i.year, fe vce(cluster BlockCode)
+    
+    * Test joint significance of treatment effects
+    test treat_2022 treat_2023 treat_2024
+    estadd scalar pval_joint=r(p)
+    
+    estadd local enterprise_fe "YES"
+    estadd local year_fe "YES"
+    estadd local clustering "Block"
+    estadd local covariates "NO"
+    
+    sum `var' if e(sample) & treat_2022==0 & treat_2023==0 & treat_2024==0
+    estadd scalar mean_control=r(mean)
+    
+    eststo investment_table_`i'
+    local i=`i'+1
+}
+
+#delimit ;
+esttab investment_table_1 investment_table_2 investment_table_3 investment_table_4 investment_table_5 investment_table_6 investment_table_7 investment_table_8 investment_table_9 using "$Scratch/investment_analysis.tex", replace depvar legend label nonumbers nogaps nonotes ///
+    b(%9.3f) se star(* 0.10 ** 0.05 *** 0.01) nogaps ///
+    keep(treat_2022 treat_2023 treat_2024 2023.year 2024.year) ///
+    order(treat_2022 treat_2023 treat_2024 2023.year 2024.year) ///
+    stats(N mean_control pval_joint enterprise_fe year_fe covariates clustering, 
+          fmt(%9.0g %9.3f %9.3f %s %s %s %s) 
+          labels("Observations" "Comparison Group Mean" "Joint Test P-value" "Enterprise FE" "Year FE" "Covariates" "SE Clustering")) ///
+    mtitles("Whether Invested" "Log Total Invest" "Count Invest" "WC Invest" "AC Invest" "Log WC Amount" "Log Asset Amount" "WC Share" "Asset Share") ///
+    title("Table X: Impact of MGP on Investment") ///
+    addnotes("Standard errors clustered at the block level" 
+			"WC Share implies a ratio of Working Capital and Total Investment"
+			"Asset Share implies a ratio of Fixed Capital and Total Investment") ;
+#delimit cr
 
 
 

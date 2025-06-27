@@ -1,4 +1,4 @@
-global Scratch "V:\Projects\TNRTP\MGP\Analysis\Scratch"
+global Scratch "V:\Projects\MGP\Analysis\Scratch"
 global ent_d_contr "female_owner ent_nature_* ent_location_*"
 global ent_c_contr "e_age age_entrepreneur marriage_age education_yrs std_digit_span risk_count"
 global age_vars "e_age age_entrepreneur"
@@ -82,6 +82,7 @@ zscore profit revenue costs
 csdid z_profit if ent_running == 1, ivar(enterprise_id_num) time(time) gvar(gvar) notyet 
 estat all
 estat event, window(-4 8) estore(cs_profit)
+bacondecomp z_profit post, ddetail
 
 
 
@@ -602,6 +603,18 @@ graph combine profit_plot revenue_plot costs_plot, ///
     name(combined_horizontal, replace) ///
     imargin(small) iscale(0.8)
 graph export "$Scratch/combined_event_study_horizontal.png", replace width(1200) height(400)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

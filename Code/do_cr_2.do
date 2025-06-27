@@ -2277,9 +2277,29 @@ format halfyearly_disbursement_date %th
 
 
 
-
-
-
+	   
+	   
+* Alternative color scheme (blue/orange) - No notes
+twoway (kdensity digit_span if treatment_285 == 0, ///
+        bwidth(0.4) lcolor("31 119 180") lwidth(thick)) ///
+       (kdensity digit_span if treatment_285 == 1, ///
+        bwidth(0.4) lcolor("255 127 14") lwidth(thick)), ///
+       title("Digit Span Score Distribution by Treatment Group", ///
+             size(large) color(black) margin(medium)) ///
+       xtitle("Digit Span Score", size(medlarge)) ///
+       ytitle("Probability Density", size(medlarge)) ///
+       xlabel(3(1)11, labsize(medlarge)) ///
+       ylabel(0(0.05)0.30, labsize(medlarge) format(%4.2f)) ///
+       legend(label(1 "Control") label(2 "Treatment") ///
+              position(1) ring(0) cols(1) ///
+              region(lcolor(gs8) fcolor(gs16) margin(small)) ///
+              size(medlarge) symxsize(6)) ///
+       graphregion(color(white)) ///
+       plotregion(margin(medium))
+       
+graph export "$Scratch/digit_span_density.png", replace
+	   
+	   
 variable creation end
 
 
